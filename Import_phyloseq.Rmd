@@ -1,0 +1,148 @@
+---
+title: "Primer Trial"
+output:
+  html_document:
+    df_print: paged
+editor_options: 
+  chunk_output_type: console
+---
+
+# Import to phyloseq
+
+## Prepare
+
+### Packages
+
+```{r packages}
+# install.packages("remotes")
+# if (!requireNamespace("BiocManager", quietly = TRUE))
+#  install.packages("BiocManager")
+# remotes::install_github("jbisanz/qiime2R")
+# BiocManager::install("phyloseq")
+# BiocManager::install("escamero/mirlyn")
+
+# library(qiime2R)  # to import qiime.qza into an R object
+library(phyloseq) # To combine all relevant data objects into one object for easy data management
+library(tidyverse) # Compilation of packages for data management 
+library(stringr)  # to change some of the strings in taxonomic names in Silva 
+library(vegan)   # A commonly used package in numerical ecological 
+# library(colorspace)
+ library(RColorBrewer)
+#library(ampvis2)
+```
+
+### Creating phyloseq objects
+```{r import}
+
+## Sample sheet
+metadata <- read_tsv("./data/SampleSheet.tsv")  
+# Inspect the metadata object. The second row is qiime-specific information and has to be removed. 
+metadata2 <- metadata[c(2:nrow(metadata)),] %>% # remove the top row and convert characters to factors
+  mutate_all(type.convert) %>%
+  mutate_if(is.factor, as.character) %>%  # reformatting columns to avoid any problems with factors at this stage
+  as_tibble() %>% 
+  mutate(Treatment = factor(Treatment, levels = c("WAS", "BC", "HC", "Co"))) %>% 
+  column_to_rownames("SampleID") 
+
+# otu/asv table import                      
+otus <-  read.csv("./data/Merged_OTU_Data__Structured.csv") 
+otus <- otus %>% 
+  group_by(X.OTU.ID) %>% 
+  summarise(across(everything(), mean, na.rm = NA)) %>% 
+  column_to_rownames("X.OTU.ID")
+
+# Taxonomy
+## --> taxonomy not available in full. 
+# taxonomy <-  read.csv("./data/taxonomy.csv")
+## re-format the taxonomy file to split the taxonomy into columns
+## remove the confidence column
+#taxtable <- taxonomy %>% as_tibble() %>%
+#  separate(Taxon, sep=";", c("Kingdom","Phylum","Class","Order","Family","Genus","Species"))  %>%
+#  column_to_rownames("X.OTU.ID") %>%
+#  as.matrix()
+
+# Create the phyloseq object 
+ps <- phyloseq(
+  otu_table(otus, taxa_are_rows = T), 
+  sample_data(metadata2)
+  # phyloseq::tax_table(taxtable)
+)
+
+# check the sample sheet from ps object
+samplesheet <- data.frame(sample_data(ps))
+# check what are factors or character values. you may need to change your treatments to factors
+str(samplesheet)
+summary(samplesheet$Treatment)
+
+# remove things out of the R environment you dont need. 
+rm(otus, metadata, metadata2, taxonomy, taxtable)
+
+## Remove those annoying short codes in front of taxa names (i.e. p__ etc) as they
+## dont look good in visualisation
+tax_table(ps)[, "Kingdom"] <- str_replace_all(tax_table(ps)[, "Kingdom"], "k__", "") 
+tax_table(ps)[, "Phylum"] <- str_replace_all(tax_table(ps)[, "Phylum"], " p__", "") 
+tax_table(ps)[, "Class"] <- str_replace_all(tax_table(ps)[, "Class"], " c__", "") 
+tax_table(ps)[, "Order"] <- str_replace_all(tax_table(ps)[, "Order"], " o__", "") 
+tax_table(ps)[, "Family"] <- str_replace_all(tax_table(ps)[, "Family"], " f__", "") 
+tax_table(ps)[, "Genus"] <- str_replace_all(tax_table(ps)[, "Genus"], " g__", "") 
+tax_table(ps)[, "Species"] <- str_replace_all(tax_table(ps)[, "Species"], " s__", "") 
+
+```
+
+### Colors and shapes
+```{r cols, , include=FALSE, echo=TRUE, warning=FALSE, message=FALSE, results=FALSE}
+# Create a colour vector that can be used across different figures
+# You can check Hex codes with help of https://htmlcolorcodes.com/
+#https://www.nceas.ucsb.edu/sites/default/files/2020-04/colorPaletteCheatsheet.pdf
+#display.brewer.all(5)
+cols <- brewer.pal(4, 'Set1') # red, green, blue
+names(cols) <- unique(sample_data(ps)$Treatment)
+#shapes <- c(15, 17, 19)
+#names(shapes) <- unique(sample_data(psV4)$Digester)
+```
+
+
+### Histogram otu counts
+```{r histo, include=TRUE, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE}
+ggpubr::gghistogram(taxa_sums(ps),
+  ylab = "OTU",
+  xlab = "Sequence count",
+  fill = "black", 
+  bins = 500) 
+```
+
+### Taxa percentage identified
+Check how many of the ASVs could be identified
+```{r taxapct, include=TRUE, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE}
+
+# ONLY POSSIBLE WITH TAXONOMY INLCUDED IN THE phyloseq object
+
+ps.flt  = subset_taxa(ps_1C , !is.na(Phylum) & !Phylum %in% c(""))
+# percent of phyla identified
+ntaxa(ps.flt) / ntaxa(ps_1C)
+# 0.98 
+
+ps.flt  = subset_taxa(ps_1C , !is.na(Genus) & !Genus %in% c(""))
+# percent of phyla identified
+ntaxa(ps.flt) / ntaxa(ps_1C)
+# 0.93
+
+ps.flt  = subset_taxa(ps_1C , !is.na(Species) & !Species %in% c(""))
+# percent of phyla identified
+ntaxa(ps.flt) / ntaxa(ps_1C)
+# 0.73
+
+
+# Percent Bacteria 
+ps.flt  = subset_taxa(ps_1C , Kingdom == "Bacteria")
+ntaxa(ps.flt) / ntaxa(ps_1C)
+# 0.99
+
+#and Archaea
+ps.flt  = subset_taxa(ps_1C, Kingdom == "Archaea")
+ntaxa(ps.flt) / ntaxa(ps_1C)
+# 0.013
+
+```
+
+
