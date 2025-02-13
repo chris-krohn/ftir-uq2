@@ -99,6 +99,7 @@ ggpubr::gghistogram(taxa_sums(ps),
 
 ### Taxa percentage identified
 Check how many of the OTUs/ASVs could be identified
+ONLY POSSIBLE WITH TAXONOMY INLCUDED IN THE phyloseq object
 ```{r taxapct, include=TRUE, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE}
 
 # ONLY POSSIBLE WITH TAXONOMY INLCUDED IN THE phyloseq object
