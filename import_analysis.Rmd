@@ -40,7 +40,8 @@ metadata2 <- metadata[c(2:nrow(metadata)),] %>% # remove the top row and convert
   mutate_all(type.convert) %>%
   mutate_if(is.factor, as.character) %>%  # reformatting columns to avoid any problems with factors at this stage
   as_tibble() %>% 
-  mutate(Treatment = factor(Treatment, levels = c("WAS", "BC", "HC", "Co"))) %>% 
+  mutate(Treatment = factor(Treatment_name, levels = c("WAS", "BC", "HC", "Co"))) %>% 
+  mutate(Day = factor(Day, levels = c("D76", "D121", "D160", "D196"))) %>% 
   column_to_rownames("SampleID") 
 
 # otu/asv table import                      
@@ -74,7 +75,7 @@ str(samplesheet)
 summary(samplesheet$Treatment)
 
 # remove things out of the R environment you dont need. 
-rm(otus, metadata, metadata2, taxonomy, taxtable)
+rm(otus,metadata, taxonomy, taxtable)
 
 ## Remove those annoying short codes in front of taxa names (i.e. p__ etc) as they
 ## dont look good in visualisation
@@ -161,7 +162,7 @@ psATR <-phyloseq(
 #https://www.nceas.ucsb.edu/sites/default/files/2020-04/colorPaletteCheatsheet.pdf
 #display.brewer.all(5)
 cols <- brewer.pal(4, 'Set1') # red, green, blue
-names(cols) <- unique(sample_data(ps)$Treatment)
+names(cols) <- unique(sample_data(ps)$Treatment_name)
 #shapes <- c(15, 17, 19)
 #names(shapes) <- unique(sample_data(psV4)$Digester)
 ```
@@ -174,6 +175,8 @@ To see how microbial 16S abundances vary among the selected samples.
 
 # Filter data to remove singletons or small counts as the likelihood of their false detection is high. 
 ps.temp = filter_taxa(ps, function(x) mean(x) > 1e-5, TRUE)
+ps.temp = prune_samples(sample_data(ps.temp)$Treatment_name %notin% c("WAS"), ps.temp)
+ps.temp = prune_taxa(taxa_sums(ps.temp) > 0,ps.temp)
 #physeqPCA <- prune_taxa(taxa_sums(ps) >= 5,ps)
 
 # number of otus/asvs removed
@@ -196,15 +199,15 @@ speciesscores <- data.frame(ordination$CA$v)
 # ordination$CA$eig
 DF <- plot_ordination(ps.temp, ordination, justDF = TRUE, axes=1:2)
 # plotting ordination
-p <- ggplot(data = DF,aes(x=PC1, y=PC2,  color = Treatment, shape = Day))  + 
-    geom_point(alpha = 0.5, na.rm=TRUE) +
+p <- ggplot(data = DF,aes(x=PC1, y=PC2,  color = Treatment_name, shape = Day))  + 
+    geom_point(alpha = 0.5, na.rm=TRUE, size = 4) +
    geom_text(label = DF$Reactor,  nudge_x = 0.7, nudge_y = 0.7, alpha = 0.5, show.legend = FALSE) + 
   labs(
     x = paste0("PC1 (", round(percent_variance[1], 2), "%)"),
     y = paste0("PC2 (", round(percent_variance[2], 2), "%)")
   ) 
 p
-ggsave(plot = p, "./Figures/PCA_otus.png", height=8, width=11, units='cm', dpi=300)
+ggsave(plot = p, "./Figures/PCA_otus.png", height=8, width=12, units='cm', dpi=300)
 ```
 
 

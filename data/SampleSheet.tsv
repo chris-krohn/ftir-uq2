@@ -1,18 +1,18 @@
-SampleID	Day	Treatment	Reactor 	pH	VFA
-#q2:types	categorical	categorical	categorical	continuous	continuous
-WAS_76	D76	WAS	WAS	NA	NA
-R1_76	D76	BC	R1	NA	NA
-R2_76	D76	HC	R2	NA	NA
-R3_76	D76	Co	R3	NA	NA
-WAS_121	D121	WAS	WAS	NA	NA
-R1_121	D121	BC	R1	7.38	12.47418892
-R2_121	D121	HC	R2	7.13	14.48738433
-R3_121	D121	Co	R3	7.34	11.43231941
-WAS_160	D160	WAS	WAS	NA	NA
-R1_160	D160	BC	R1	7.43	NA
-R2_160	D160	HC	R2	7.4	NA
-R3_160	D160	Co	R3	7.42	NA
-WAS_196	D196	WAS	WAS	NA	NA
-R1_196	D196	BC	R1	7.36	NA
-R2_196	D196	HC	R2	7.38	NA
-R3_196	D196	Co	R3	7.44	NA
+SampleID	Day	Reactor 	Treatment_name	Treatment_name_R	Treatment_days	FTIR_data	Microbial_profiles	pH	VFA	..More_data
+#q2:types	categorical	categorical	categorical	categorical	numerical	categorical	categorical	numerical	numerical	numerical
+WAS_76	D76	WAS	WAS	WAS	0	No	Yes	NA	NA	
+R1_76	D76	R1	Control	ControlR1	0	No	Yes	NA	NA	
+R2_76	D76	R2	Control	ControlR2	0	No	Yes	NA	NA	
+R3_76	D76	R3	Control	ControlR3	0	No	Yes	NA	NA	
+WAS_121	D121	WAS	WAS	WASWAS	0	No	Yes	NA	NA	
+R1_121	D121	R1	Control	ControlR1	0	No	Yes	7.38	12.47418892	
+R2_121	D121	R2	Control	ControlR2	0	No	Yes	7.13	14.48738433	
+R3_121	D121	R3	BCR	BCRR3	37	No	Yes	7.34	11.43231941	
+WAS_160	D160	WAS	WAS	WAS	0	No	Yes	NA	NA	
+R1_160	D160	R1	Control	ControlR1	0	No	Yes	7.43	NA	
+R2_160	D160	R2	Control	ControlR2	0	No	Yes	7.4	NA	
+R3_160	D160	R3	BCR	BCRR3	76	No	Yes	7.42	NA	
+WAS_196	D196	WAS	WAS	WAS	0	No	Yes	NA	NA	
+R1_196	D196	R1	HCR	HCRR1	24	No	Yes	7.36	NA	
+R2_196	D196	R2	Control	ControlR2	0	No	Yes	7.38	NA	
+R3_196	D196	R3	BCR	BCRR3	112	No	Yes	7.44	NA	
