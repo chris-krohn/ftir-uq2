@@ -138,6 +138,11 @@ ggpubr::gghistogram(taxa_sums(ps),
   xlab = "Sequence count",
   fill = "black", 
   bins = 500) 
+
+#data <- as.data.frame(t(otu_table(ps)))
+#out <- vegan::rarecurve(data, step = 200, sample = resamplesize, label = FALSE)
+#Error in vegan::rarecurve(data, step = 200, sample = resamplesize, label = FALSE) : 
+#  function accepts only integers (counts)
 ```
 
 
@@ -272,6 +277,51 @@ ggsave(plot = p, "./Figures/PCoA_Jaccard_genus.png", height=10, width=13, units=
 
 ```
 
+#### heatmaps
+```{r}
+library(ampvis2)
+ps.temp = filter_taxa(ps, function(x) mean(x) > 1e-5, TRUE)
+# Removing WAS samples
+ps.temp = prune_samples(sample_data(ps.temp)$Treatment_name %notin% c("WAS"), ps.temp)
+ps.temp = prune_taxa(taxa_sums(ps.temp) > 0,ps.temp)
+
+taxtable <- data.frame(tax_table(ps.temp)) 
+ASVtable <- data.frame(otu_table(ps.temp))
+metaobject <- data.frame(sample_data(ps.temp)) %>% 
+  rownames_to_column("#OTU ID") 
+
+amp <- amp_load(otutable = ASVtable,
+              metadata = metaobject,
+              taxonomy = taxtable) 
+# Genus
+h <- amp_heatmap(amp, tax_aggregate = "Genus", 
+                  tax_add = c("Phylum"), 
+                  facet_by = "Day",
+                  group_by = "Treatment_name", 
+                  plot_values_size = 3,
+                  tax_show = 40, showRemainingTaxa = TRUE, normalise = TRUE) + 
+  scale_y_discrete(position = "right") +
+  theme(
+    axis.text.y = element_text(size = 8)
+  )
+h
+ggsave("./Figures/heatmaps.png", height=15, width=20, units='cm', dpi=300)
+
+# Phylum
+h2 <- amp_heatmap(amp, tax_aggregate = "Phylum", 
+                  tax_add = c("Kingdom"), 
+                  facet_by = "Day",
+                  group_by = "Treatment_name", 
+                  plot_values_size = 3,
+                  tax_show = 40, showRemainingTaxa = TRUE, normalise = TRUE) + 
+  scale_y_discrete(position = "right") +
+  theme(
+    axis.text.y = element_text(size = 8)
+  )
+h2
+
+ggsave("./Figures/heatmap.png", height=15, width=20, units='cm', dpi=300)
+```
 
 
 ### Analysis reflectance (ATR)
