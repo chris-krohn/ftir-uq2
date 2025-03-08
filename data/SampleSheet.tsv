@@ -1,18 +1,18 @@
-SampleID	Day	Reactor 	Treatment_name	Treatment_name_R	Treatment_days	FTIR_data	Microbial_profiles	pH	VFA	..More_data
-#q2:types	categorical	categorical	categorical	categorical	numerical	categorical	categorical	numerical	numerical	numerical
-WAS_76	D76	WAS	WAS	WAS	0	No	Yes	NA	NA	
-R1_76	D76	R1	Control	ControlR1	0	No	Yes	NA	NA	
-R2_76	D76	R2	Control	ControlR2	0	No	Yes	NA	NA	
-R3_76	D76	R3	Control	ControlR3	0	No	Yes	NA	NA	
-WAS_121	D121	WAS	WAS	WASWAS	0	No	Yes	NA	NA	
-R1_121	D121	R1	Control	ControlR1	0	No	Yes	7.38	12.47418892	
-R2_121	D121	R2	Control	ControlR2	0	No	Yes	7.13	14.48738433	
-R3_121	D121	R3	BCR	BCRR3	37	No	Yes	7.34	11.43231941	
-WAS_160	D160	WAS	WAS	WAS	0	No	Yes	NA	NA	
-R1_160	D160	R1	Control	ControlR1	0	No	Yes	7.43	NA	
-R2_160	D160	R2	Control	ControlR2	0	No	Yes	7.4	NA	
-R3_160	D160	R3	BCR	BCRR3	76	No	Yes	7.42	NA	
-WAS_196	D196	WAS	WAS	WAS	0	No	Yes	NA	NA	
-R1_196	D196	R1	HCR	HCRR1	24	No	Yes	7.36	NA	
-R2_196	D196	R2	Control	ControlR2	0	No	Yes	7.38	NA	
-R3_196	D196	R3	BCR	BCRR3	112	No	Yes	7.44	NA	
+SampleID	Name	Day	Reactor 	Treatment_name	Treatment_name_R	Treatment_days	FTIR_data	Microbial_profiles	pH	VFA	..More_data
+#q2:types	categorical	categorical	categorical	categorical	categorical	numerical	categorical	categorical	numerical	numerical	numerical
+RA7188_J5894	WAS	D76	WAS	WAS	WAS	0	No	Yes	NA	NA	
+RA7189_J5894	HCR	D76	R1	Control	ControlR1	0	No	Yes	NA	NA	
+RA7190_J5894	Control	D76	R2	Control	ControlR2	0	No	Yes	NA	NA	
+RA7191_J5894	BCR	D76	R3	Control	ControlR3	0	No	Yes	NA	NA	
+RA7450_J5960	WAS	D121	WAS	WAS	WASWAS	0	No	Yes	NA	NA	
+RA7451_J5960	HCR	D121	R1	Control	ControlR1	0	No	Yes	7.38	12.47418892	
+RA7452_J5960	Control	D121	R2	Control	ControlR2	0	No	Yes	7.13	14.48738433	
+RA7453_J5960	BCR	D121	R3	BCR	BCRR3	45	No	Yes	7.34	11.43231941	
+RB0140_J6435	WAS	D160	WAS	WAS	WAS	0	No	Yes	NA	NA	
+RB0141_J6435	HCR	D160	R1	Control	ControlR1	0	No	Yes	7.43	NA	
+RB0142_J6435	Control	D160	R2	Control	ControlR2	0	No	Yes	7.4	NA	
+RB0143_J6435	BCR	D160	R3	BCR	BCRR3	76	No	Yes	7.42	NA	
+RB0169_J6457	WAS	D196	WAS	WAS	WAS	0	No	Yes	NA	NA	
+RB0170_J6457	HCR	D196	R1	HCR	HCRR1	24	No	Yes	7.36	NA	
+RB0171_J6457	Control	D196	R2	Control	ControlR2	0	No	Yes	7.38	NA	
+RB0172_J6457	BCR	D196	R3	BCR	BCRR3	112	No	Yes	7.44	NA	

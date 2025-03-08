@@ -1,8 +1,9 @@
 ---
+title: "PCA for Shamima"
 author: "[Christian Krohn, PhD, RMIT University](https://www.rmit.edu.au/contact/staff-contacts/academic-staff/k/krohn---christian)"
 date: "`r Sys.Date()`"
 documentclass: html
-github-repo: ftir-uq - shamima
+github-repo: "ftir-uq - shamima"
 ---
 
 
@@ -10,6 +11,8 @@ github-repo: ftir-uq - shamima
 ## Packages
 
 ```{r packages}
+
+# Install all needed packages 
 # install.packages("remotes")
 # if (!requireNamespace("BiocManager", quietly = TRUE))
 #  install.packages("BiocManager")
@@ -17,26 +20,47 @@ github-repo: ftir-uq - shamima
 # BiocManager::install("phyloseq")
 # BiocManager::install("escamero/mirlyn")
 
-# library(qiime2R)  # to import qiime.qza into an R object
+#if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+#BiocManager::install(c("phyloseq", "microbiome", "ComplexHeatmap"), update = FALSE)
+
+#install.packages(
+#  "microViz",
+#  repos = c(davidbarnett = "https://david-barnett.r-universe.dev", getOption("repos"))
+#)
+
+
+library(qiime2R)  # to import qiime.qza into an R object
 library(phyloseq) # To combine all relevant data objects into one object for easy data management
 library(tidyverse) # Compilation of packages for data management 
 library(stringr)  # to change some of the strings in taxonomic names in Silva 
 library(vegan)   # A commonly used package in numerical ecological 
-# library(colorspace)
  library(RColorBrewer)
-#library(ampvis2)
-library(DT)
+library(DT) 
+library(microViz)
 `%notin%` <- Negate(`%in%`)
 theme_set(theme_bw()) 
 ```
 
-## Import microbial data to phyloseq (metadata, otu, taxonomy)
-```{r import}
+## Import
+### Import qiime data and metadata into a phyloseq object
+```{r}
 
-## Sample sheet
+# ASVs                     
+asvs <-  read.csv("./data/relative_features_statistics_07March2025.csv") %>% column_to_rownames("X.OTU.ID") %>% 
+  dplyr::select(RA7188_J5894:RB0172_J6457) 
+colnames(asvs)
+# Taxonomy
+taxa <-  read.csv("./data/relative_features_statistics_07March2025.csv") %>% column_to_rownames("X.OTU.ID") %>% 
+  dplyr::select(Taxon) 
+## re-format the taxonomy file to split the taxonomy into columns
+taxa <- taxa %>% 
+  separate(Taxon, sep=";", c("Kingdom","Phylum","Class","Order","Family","Genus","Species"))  %>%
+   as.matrix()
+
+# Metadata
 metadata <- read_tsv("./data/SampleSheet.tsv")  
-# Inspect the metadata object. The second row is qiime-specific information and has to be removed. 
-metadata2 <- metadata[c(2:nrow(metadata)),] %>% # remove the top row and convert characters to factors
+# Inspect the metadata object. The second row is qiime-specific information and has to be removed.
+metadata <- metadata[c(2:nrow(metadata)),] %>% # remove the top row and convert characters to factors
   mutate_all(type.convert) %>%
   mutate_if(is.factor, as.character) %>%  # reformatting columns to avoid any problems with factors at this stage
   as_tibble() %>% 
@@ -44,42 +68,21 @@ metadata2 <- metadata[c(2:nrow(metadata)),] %>% # remove the top row and convert
   mutate(Day = factor(Day, levels = c("D76", "D121", "D160", "D196"))) %>% 
   column_to_rownames("SampleID") 
 
-# otu/asv table import                      
-otus <-  read.csv("./data/Merged_OTU_Data__Structured.csv") 
-otus <- otus %>% 
-  group_by(X.OTU.ID) %>% 
-  summarise(across(everything(), mean, na.rm = NA)) %>% 
-  column_to_rownames("X.OTU.ID")
-
-# Taxonomy
-## --> taxonomy not available in full. 
-# taxonomy <-  read.csv("./data/taxonomy.csv")
-## re-format the taxonomy file to split the taxonomy into columns
-## remove the confidence column
-#taxtable <- taxonomy %>% as_tibble() %>%
-#  separate(Taxon, sep=";", c("Kingdom","Phylum","Class","Order","Family","Genus","Species"))  %>%
-#  column_to_rownames("X.OTU.ID") %>%
-#  as.matrix()
-
 # Create the phyloseq object 
 ps <- phyloseq(
-  otu_table(otus, taxa_are_rows = T), 
-  sample_data(metadata2)
-  # phyloseq::tax_table(taxtable)
+  otu_table(asvs, taxa_are_rows = T), 
+  sample_data(metadata),
+  tax_table(taxa)
 )
 
 # check the sample sheet from ps object
 samplesheet <- data.frame(sample_data(ps))
-# check what are factors or character values. you may need to change your treatments to factors
 str(samplesheet)
 summary(samplesheet$Treatment)
 
-# remove things out of the R environment you dont need. 
-rm(otus,metadata, taxonomy, taxtable)
-
 ## Remove those annoying short codes in front of taxa names (i.e. p__ etc) as they
 ## dont look good in visualisation
-tax_table(ps)[, "Kingdom"] <- str_replace_all(tax_table(ps)[, "Kingdom"], "k__", "") 
+tax_table(ps)[, "Kingdom"] <- str_replace_all(tax_table(ps)[, "Kingdom"], "d__", "") 
 tax_table(ps)[, "Phylum"] <- str_replace_all(tax_table(ps)[, "Phylum"], " p__", "") 
 tax_table(ps)[, "Class"] <- str_replace_all(tax_table(ps)[, "Class"], " c__", "") 
 tax_table(ps)[, "Order"] <- str_replace_all(tax_table(ps)[, "Order"], " o__", "") 
@@ -88,6 +91,45 @@ tax_table(ps)[, "Genus"] <- str_replace_all(tax_table(ps)[, "Genus"], " g__", ""
 tax_table(ps)[, "Species"] <- str_replace_all(tax_table(ps)[, "Species"], " s__", "") 
 
 ```
+
+
+
+### Import FTIR data into phyloseq
+```{r message=FALSE, warning=FALSE}
+# LOAD REFLECTANCE DATA 
+ATR <- read.csv("./data/CombineAnalysisFTIR.csv")[-1,] 
+ATR <- ATR %>% rownames_to_column("ID") %>% 
+  column_to_rownames("Wavenumber") %>% dplyr::select(-ID)
+
+# OPTION 1: raw
+ATR <-  as.matrix(ATR)
+#head(ATR) %>% datatable(caption = "ATR raw") 
+
+# METADATA SAMPLE IDs NEEDS MATCH SAMPLE NAMES OF SPECTRA
+metadata <- read_tsv("./data/SampleSheet_FTIR.tsv") %>% column_to_rownames("ID")
+
+# CREATE A PHYLOSEQ OBJECTS (combined metadata and spectra)
+psATR <-phyloseq(
+  otu_table(ATR, taxa_are_rows = T),
+  sample_data(metadata)  # add later
+)
+
+# remove things out of the R environment you dont need. 
+rm(otus,metadata, taxonomy, taxtable)
+```
+
+### Colors and shapes
+```{r cols, , include=FALSE, echo=TRUE, warning=FALSE, message=FALSE, results=FALSE}
+# Create a colour vector that can be used across different figures
+# You can check Hex codes with help of https://htmlcolorcodes.com/
+#https://www.nceas.ucsb.edu/sites/default/files/2020-04/colorPaletteCheatsheet.pdf
+#display.brewer.all(5)
+cols <- brewer.pal(4, 'Set1') # red, green, blue
+names(cols) <- unique(sample_data(ps)$Treatment_name)
+
+```
+
+## Analysis 16S data
 
 ### Histogram otu counts
 ```{r histo, include=TRUE, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE}
@@ -98,120 +140,143 @@ ggpubr::gghistogram(taxa_sums(ps),
   bins = 500) 
 ```
 
-### Taxa percentage identified
+
+### Taxa number and percentage identified
 Check how many of the OTUs/ASVs could be identified
-ONLY POSSIBLE WITH TAXONOMY INLCUDED IN THE phyloseq object
 ```{r taxapct, include=TRUE, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE}
 
-# ONLY POSSIBLE WITH TAXONOMY INLCUDED IN THE phyloseq object
+nrow(otu_table(ps)) 
+# 3,359 unique amplicon sequence variants (ASVs)
 
-ps.flt  = subset_taxa(ps_1C , !is.na(Phylum) & !Phylum %in% c(""))
-# percent of phyla identified
-ntaxa(ps.flt) / ntaxa(ps_1C)
-# 0.98 
+nrow(otu_table(microbiome::aggregate_taxa(ps, "Phylum")))
+# 71 phyla including unknowns combined
 
-ps.flt  = subset_taxa(ps_1C , !is.na(Genus) & !Genus %in% c(""))
-# percent of phyla identified
-ntaxa(ps.flt) / ntaxa(ps_1C)
-# 0.93
+nrow(otu_table(microbiome::aggregate_taxa(ps, "Genus")))
+# 677 genera including unknowns combined
 
-ps.flt  = subset_taxa(ps_1C , !is.na(Species) & !Species %in% c(""))
+# Phylum-level classification percentage of sequences
+ps.flt  = subset_taxa(ps , !is.na(Phylum) & !Phylum %in% c(""))
 # percent of phyla identified
-ntaxa(ps.flt) / ntaxa(ps_1C)
-# 0.73
+ntaxa(ps.flt) / ntaxa(ps) * 100
+# 95 
+
+# Genus-level classification percentage of sequences
+ps.flt  = subset_taxa(ps , !is.na(Genus) & !Genus %in% c(""))
+# percent of phyla identified
+ntaxa(ps.flt) / ntaxa(ps)* 100
+# 81
+
+# Species-level classification percentage of sequences
+ps.flt  = subset_taxa(ps , !is.na(Species) & !Species %in% c(""))
+# percent of phyla identified
+ntaxa(ps.flt) / ntaxa(ps) * 100
+# 47
 
 
 # Percent Bacteria 
-ps.flt  = subset_taxa(ps_1C , Kingdom == "Bacteria")
-ntaxa(ps.flt) / ntaxa(ps_1C)
-# 0.99
+ps.flt  = subset_taxa(ps , Kingdom == "Bacteria")
+ntaxa(ps.flt) / ntaxa(ps) * 100
+# 90
 
 #and Archaea
-ps.flt  = subset_taxa(ps_1C, Kingdom == "Archaea")
-ntaxa(ps.flt) / ntaxa(ps_1C)
-# 0.013
+ps.flt  = subset_taxa(ps, Kingdom == "Archaea")
+ntaxa(ps.flt) / ntaxa(ps) * 100
+# 2.6
 
 ```
 
-
-## Import FTIR data into phyloseq
-```{r message=FALSE, warning=FALSE}
-# LOAD REFLECTANCE DATA 
-ATR <- read.csv("./data/CombineAnalysisFTIR.csv")[-1,] 
-ATR <- ATR %>% rownames_to_column("ID") %>% 
-  column_to_rownames("Wavenumber") %>% dplyr::select(-ID)
-
-# OPTION 1: raw
-ATR <-  as.matrix(ATR)
-head(ATR) %>% datatable(caption = "ATR raw") 
-
-# METADATA SAMPLE IDs NEEDS MATCH SAMPLE NAMES OF SPECTRA
-
-# CREATE A PHYLOSEQ OBJECTS (combined metadata and spectra)
-psATR <-phyloseq(
-  otu_table(ATR, taxa_are_rows = T) 
-  #sample_data(metadata)  # add later
-)
-
-```
-
-## Colors and shapes
-```{r cols, , include=FALSE, echo=TRUE, warning=FALSE, message=FALSE, results=FALSE}
-# Create a colour vector that can be used across different figures
-# You can check Hex codes with help of https://htmlcolorcodes.com/
-#https://www.nceas.ucsb.edu/sites/default/files/2020-04/colorPaletteCheatsheet.pdf
-#display.brewer.all(5)
-cols <- brewer.pal(4, 'Set1') # red, green, blue
-names(cols) <- unique(sample_data(ps)$Treatment_name)
-#shapes <- c(15, 17, 19)
-#names(shapes) <- unique(sample_data(psV4)$Digester)
-```
-
-## Analysis 
 
 ### Microbial 16S PCA 
 To see how microbial 16S abundances vary among the selected samples. 
+#### Filtering and number of taxa
 ```{r message=FALSE, warning=FALSE, echo=F}
 
 # Filter data to remove singletons or small counts as the likelihood of their false detection is high. 
 ps.temp = filter_taxa(ps, function(x) mean(x) > 1e-5, TRUE)
+# Removing WAS samples
 ps.temp = prune_samples(sample_data(ps.temp)$Treatment_name %notin% c("WAS"), ps.temp)
 ps.temp = prune_taxa(taxa_sums(ps.temp) > 0,ps.temp)
-#physeqPCA <- prune_taxa(taxa_sums(ps) >= 5,ps)
+
+# check final data
+#phyloseq-class experiment-level object
+#otu_table()   OTU Table:         [ 1798 taxa and 12 samples ]
+#sample_data() Sample Data:       [ 12 samples by 12 sample variables ]
+#tax_table()   Taxonomy Table:    [ 1798 taxa by 7 taxonomic ranks ]
 
 # number of otus/asvs removed
 length(taxa_sums(ps)) - length(taxa_sums(ps.temp))
+# 1561
+```
+
+#### PCA (clr)
+```{r message=FALSE, warning=FALSE, echo=F}
+# MicroViz functions:
+ps.az <- microViz::tax_fix(ps.temp, unknowns = c("uncultured"))
+# try tax_fix_interactive if you have problems with your own data
 
 # Convert abundance counts into ratios
-ps.temp <- microbiome::transform(ps.temp, "clr")
-abundances <- data.frame(otu_table(ps.temp))
-#write.csv(abundances, "16S-abundances.csv")
-ordination <- phyloseq::ordinate(ps.temp , "RDA") # using the centred-log transformed abundances
-# Extract the proportion of variance explained by the components
-eig_values <- ordination$CA$eig
-percent_variance <- eig_values / sum(eig_values) * 100
-# Extract site scores (sample coordinates) for later
-sitescores <- data.frame(ordination$CA$u)
-# write.csv(sitescores, "sitescores.csv")
-# Extract species scores (species coordinates) for later
-speciesscores <- data.frame(ordination$CA$v)
-# write.csv(speciesscores, "speciesscores.csv")
-# ordination$CA$eig
-DF <- plot_ordination(ps.temp, ordination, justDF = TRUE, axes=1:2)
-# plotting ordination
-p <- ggplot(data = DF,aes(x=PC1, y=PC2,  color = Treatment_name, shape = Day))  + 
-    geom_point(alpha = 0.5, na.rm=TRUE, size = 4) +
-   geom_text(label = DF$Reactor,  nudge_x = 0.7, nudge_y = 0.7, alpha = 0.5, show.legend = FALSE) + 
-  labs(
-    x = paste0("PC1 (", round(percent_variance[1], 2), "%)"),
-    y = paste0("PC2 (", round(percent_variance[2], 2), "%)")
-  ) 
+ps.az <- ps.az %>%
+  microViz::tax_transform(trans = "clr", rank = "Genus") 
+
+p <- ps.az %>% 
+  ord_calc() %>%
+  ord_plot(color = "Treatment_name", shape = "Day", size = 3, alpha = 0.7) +
+  scale_colour_brewer("Treatment",palette = "Dark2")  +
+  theme_light()
+
+ggsave(plot = p, "./Figures/PCA_genus.png", height=10, width=13, units='cm', dpi=300)
 p
-ggsave(plot = p, "./Figures/PCA_otus.png", height=8, width=12, units='cm', dpi=300)
+```
+
+#### PCA with loadings
+```{r message=FALSE, warning=FALSE, echo=F}
+p2 <- ps.az %>% 
+  ord_calc() %>%
+  ord_plot(color = "Treatment_name", shape = "Day", size = 3, alpha = 0.7, plot_taxa = 1:10) +
+  scale_colour_brewer("Treatment",palette = "Dark2")  +
+  theme_light()
+#check <- data.frame(tax_table(ps.az))
+
+g <- ggpubr::ggarrange(p, p2, common.legend = TRUE, legend = "right")
+ggsave(plot = g, "./Figures/PCA_genus_loadings.png", height=10, width=20, units='cm', dpi=300)
+g
+```
+
+#### Iris plot
+```{r message=FALSE, warning=FALSE, echo=F}
+irisp <- ps.az %>% 
+ord_calc() %>%
+  ord_plot_iris(tax_level = "Genus", n_taxa = 10,
+                ord_plot = "none", anno_colour = "Treatment_name", scaling = 2)+
+  scale_colour_brewer("Treatment",palette = "Dark2") 
+
+ggsave(plot = irisp, "./Figures/irisplot_genus_loadings.png", height=10, width=15, units='cm', dpi=300)
+irisp
 ```
 
 
-### Reflectance ATR
+#### Principal co-ordinates analysis (Jaccard distances)
+```{r}
+# MicroViz functions:
+ps.az <- microViz::tax_fix(tax_fix(ps.temp, unknowns = c("uncultured"))) 
+
+p <- ps.az %>% 
+ord_calc() %>%
+ tax_transform("identity", rank = "Genus") %>%
+  dist_calc(dist = "jaccard", binary = TRUE) %>%
+  ord_calc("PCoA") %>%
+  ord_plot(color = "Treatment_name", shape = "Day", size = 2) +
+  scale_colour_brewer(palette = "Dark2") +
+  theme_light()
+ggsave(plot = p, "./Figures/PCoA_Jaccard_genus.png", height=10, width=13, units='cm', dpi=300)
+
+```
+
+
+
+### Analysis reflectance (ATR)
+
+#### PCA (ATR?)
 check that your data is reflectance (not absorbance)
 ```{r message=FALSE, warning=FALSE, echo=T}
 library(factoextra)
@@ -219,8 +284,7 @@ library(compositions)
 my_comparisons <- list(c(1, 2))
 symbolsize <- 3
 
-ps.temp <- psATR
-pca <- prcomp(otu_table(ps.temp),  scale = FALSE, center = TRUE)
+pca <- prcomp(otu_table(psATR),  scale = FALSE, center = TRUE)
 # summary(otu_table(ps.temp))
 # head(otu_table(ps.temp))
 data <- get_pca(pca)
@@ -229,123 +293,71 @@ cor <- data$cor
 cos2 <- data$cos2
 contrib <- data$contrib # contributions of variables
 
-# Combine with metadata (do later)
-#df.tmp <- (data.frame(cord) %>% rownames_to_column("ID")) %>% left_join(sample_data(ps.temp) %>% rownames_to_column("ID") ) 
-# compare_means(Dim.1 ~ Treatment, method = "t.test", df.tmp)
-```
 
-Do this once samples IDs are clarified
-```{r message=FALSE, warning=FALSE, echo=F}
+# Optional - Combine with metadata (do later)
+df.tmp <- (data.frame(cord) %>% rownames_to_column("Treatment")) %>% 
+  left_join(sample_data(psATR)  ) 
+
 ggplot(data = df.tmp, aes(x=Dim.1, y=Dim.2,  
-                       #  color = Treatment, 
+                         color = Treatment
                       #   shape = as.character(Day) 
        )) + 
-    geom_point(alpha = 0.5, na.rm=TRUE, size = symbolsize) +
+    geom_point(alpha = 0.5, na.rm=TRUE, size = 3) +
    labs(shape = "Date") +
   ggtitle("PC1 and PC2 of ATR (raw)")
+
+ggsave("./Figures/PCA_ATR.png", height=10, width=13, units='cm', dpi=300)
+
+```
+
+#### Alternative way to do PCA
+Check out <https://mda.tools/docs/pca.html>
+
+```{r fig.height=8, fig.width=8}
+library(mdatools)
+
+df.pca <- t(data.frame(otu_table(psATR)))
+m = mdatools::pca(df.pca, 7, scale = TRUE, info = "Reflectance PCA model")
+
+# create a factor for combination of Treatment and Region values
+g <- factor(sample_data(psATR)$Treatment, levels = c("R1", "R2", "R3", "BC","HC", "WAS"))
+
+# scores plot for calibration results colored by Height
+par(mfrow = c(2, 2))
+# scores plot colored by the factor created 
+plotScores(m$res$cal, show.labels = FALSE, cgroup = g)
+# Plot loadings
+plotLoadings(m, c(1, 3), show.labels = TRUE)
+
+# distance plot for calibration results with labels
+plotResiduals(m$res$cal, show.labels = TRUE, cgroup = g )
+
+# variance plot for calibration results with values as labels
+plotVariance(m$res$cal, type = "h", show.labels = TRUE, labels = "values")
+
+```
+
+#### Plot spectral data
+```{r}
+attr(df.pca, "xaxis.name") = "Reflectance"
+m = pca(df.pca, 3)
+plotLoadings(m, 1:2, type = "l")
 ```
 
 
-#### Compare groups 
-not done for this data set 
-
-T-TESTS, p-values 
-Assessing if there were significant differences in the means of Principal Components (PCs) coordinates between groups (control and treatment)
-```{r fig.height=10, fig.width=7, message=FALSE, warning=FALSE, echo=F}
-# Plotting
-pc1 <- ggplot(df.tmp, aes(x = Treatment, y = Dim.1, fill = Treatment, group = AD)) +
-  geom_bar(stat = "identity", position = position_dodge(0.9),color = "black") +
-  facet_wrap(~ Period, scales = "fixed", nrow = 1) +
-  labs(x = "Treatment", y = "Dim.1") + ggtitle("PC1 ATR") +
-  geom_text(aes(label = AD), position = position_dodge(width = 0.9), vjust = -0.5, size = 3) +
-  theme(axis.title.x = element_blank()) +
-  stat_compare_means(comparisons=my_comparisons, method = "t.test", aes(label=..p.format..))+
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15)))
-
-pc2 <- ggplot(df.tmp, aes(x = Treatment, y = Dim.2, fill = Treatment, group = AD)) +
-  geom_bar(stat = "identity", position = position_dodge(0.9),color = "black") +
-  facet_wrap(~ Period, scales = "fixed", nrow = 1) +
-  labs(x = "Treatment", y = "Dim.2")  + ggtitle("PC2 ATR")+
-  geom_text(aes(label = AD), position = position_dodge(width = 0.9), vjust = -0.5, size = 3) +
-  theme(axis.title.x = element_blank())+
-  stat_compare_means(comparisons=my_comparisons, method = "t.test", aes(label=..p.format..))+
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15)))
-
-pc3 <- ggplot(df.tmp, aes(x = Treatment, y = Dim.3, fill = Treatment, group = AD)) +
-  geom_bar(stat = "identity", position = position_dodge(0.9),color = "black") +
-  facet_wrap(~ Period, scales = "fixed", nrow = 1) +
-  labs(x = "Treatment", y = "Dim.3") + ggtitle("PC3 ATR")+
-  geom_text(aes(label = AD), position = position_dodge(width = 0.9), vjust = -0.5, size = 3) +
-  theme(axis.title.x = element_blank())+
-  stat_compare_means(comparisons=my_comparisons, method = "t.test", aes(label=..p.format..))+
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15)))
-
-pc4 <- ggplot(df.tmp, aes(x = Treatment, y = Dim.4, fill = Treatment, group = AD)) +
-  geom_bar(stat = "identity", position = position_dodge(0.9),color = "black") +
-  facet_wrap(~ Period, scales = "fixed", nrow = 1) +
-  labs(x = "Treatment", y = "Dim.4")  + ggtitle("PC4 ATR")+
-  geom_text(aes(label = AD), position = position_dodge(width = 0.9), vjust = -0.5, size = 3) +
-  theme(axis.title.x = element_blank())+
-  stat_compare_means(comparisons=my_comparisons, method = "t.test", aes(label=..p.format..))+
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15)))
-
-pc5 <- ggplot(df.tmp, aes(x = Treatment, y = Dim.5, fill = Treatment, group = AD)) +
-  geom_bar(stat = "identity", position = position_dodge(0.9),color = "black") +
-  facet_wrap(~ Period, scales = "fixed", nrow = 1) +
-  labs(x = "Treatment", y = "Dim.5")  + ggtitle("PC5 ATR")+
-  geom_text(aes(label = AD), position = position_dodge(width = 0.9), vjust = -0.5, size = 3) +
-  theme(axis.title.x = element_blank())+
-  stat_compare_means(comparisons=my_comparisons, method = "t.test", aes(label=..p.format..))+
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15)))
-
-g1 <- ggarrange(pc1, pc2, pc3, pc4,  common.legend = TRUE, nrow = 4, ncol = 1) 
-#ggsave(plot = g1, "./Figures/PC_cordinates_ATR.png", height=26, width=14, units='cm', dpi=300)
-g1
-
-## FOR LATER COMPARISON WITH AVE
-dim3 <- factoextra::fviz_contrib(pca, "ind", axes = 3) 
-```
-
-```{r message=FALSE, warning=FALSE, echo=F}
-#dim1 <- factoextra::fviz_contrib(pca, "var", axes = 1) 
-#dim2 <- factoextra::fviz_contrib(pca, "var", axes = 2) 
-#dim3 <- factoextra::fviz_contrib(pca, "var", axes = 3) 
-#dim4 <- factoextra::fviz_contrib(pca, "var", axes = 4) 
-#dims <- ggarrange(dim1, dim2, dim3, dim4, ncol = 2, nrow = 2)
-#dims
-
-#dim1 <- factoextra::fviz_contrib(pca, "ind", axes = 1) 
-#dim2 <- factoextra::fviz_contrib(pca, "ind", axes = 2) 
-dim3ave <- factoextra::fviz_contrib(pca, "ind", axes = 3) 
-#dim4 <- factoextra::fviz_contrib(pca, "ind", axes = 4) 
-#dims <- ggarrange(dim1, dim2, dim3, dim4, ncol = 2, nrow = 2)
-#dim3ave
-dataave <- dim3ave$data
-dataave$name <- as.numeric(dataave$name)
-dataatr <- dim3$data
-dataatr$name <- as.numeric(dataatr$name)
-dataave$contribATR <- dataatr$contrib
-data <- dataave %>% rownames_to_column("wavel")
-data <- data %>% select(-name)
-data$wavel <- as.numeric(data$wavel)
-data <- data %>% pivot_longer(contrib:contribATR, names_to = "PCcontrib")
-data$PCcontrib <- as.factor(data$PCcontrib)
-#str(data)
-```
-
-### Spectra contributions to PC3
+#### Spectra contributions to PC3 (NOT DONE)
 not done for this data set 
 ```{r message=FALSE, warning=FALSE , echo=F}
-ggscatter(data, y = "value", x = "wavel", alpha = 0.2, size = 0.6, color = "PCcontrib") +
-  ylab("PC3 contribution") + xlab("Wavelength")  + 
-  scale_x_continuous(limits = c(500, 4500),
-                     breaks = c(1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500)) +
-  ylim(-0.01,0.3) + 
-  scale_color_discrete(name = "Contributions to PC3", labels = c("AVE", "ATR"))   +
-  guides(colour = guide_legend(override.aes = list(size = 4), 
-                               keywidth = 0.5, 
-                                keyheight = 0.5))+ 
-  theme(legend.position = c(0.8, 0.8))
+#ggscatter(data, y = "value", x = "wavel", alpha = 0.2, size = 0.6, color = "PCcontrib") +
+#  ylab("PC3 contribution") + xlab("Wavelength")  + 
+#  scale_x_continuous(limits = c(500, 4500),
+#                     breaks = c(1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500)) +
+##  ylim(-0.01,0.3) + 
+#  scale_color_discrete(name = "Contributions to PC3", labels = c("AVE", "ATR"))   +
+#  guides(colour = guide_legend(override.aes = list(size = 4), 
+#                               keywidth = 0.5, 
+#                                keyheight = 0.5))+ 
+#  theme(legend.position = c(0.8, 0.8))
 
 #ggsave(plot = p, "./Figures/PC3contributions.png", height=12, width=25, units='cm', dpi=300)
 

@@ -1,0 +1,120 @@
+
+start=$(date +'%Y-%m-%d %H:%M:%S') 
+echo "start time $start"
+
+# Load qiime
+eval "$(conda shell.bash hook)"
+conda activate qiime2-amplicon-2024.2
+
+
+# Import to .qza
+
+# qiime tools import \
+#  --input-path feature-table_J6435.biom \
+#  --type 'FeatureTable[Frequency]' \
+#  --input-format BIOMV210Format \
+#  --output-path feature-table_J6435.qza
+
+
+qiime tools import \
+  --input-path sequences_J6435.fasta \
+  --output-path sequences_J6435.qza \
+  --type 'FeatureData[Sequence]'
+
+
+ 
+#---------------------- RENAME SampleIDs of R1 -------------------------------------------------
+#qiime feature-table group \
+#  --i-table /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/Dada2maxee2and6_used/filtered-table.qza \
+#  --p-axis sample \
+#  --m-metadata-file /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/Dada2maxee2and6_used/SampleSheetR1.tsv \
+#  --m-metadata-column SampleID3 \
+#  --p-mode sum \
+#  --o-grouped-table /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/Dada2maxee2and6_used/reindexed-table.qza
+
+# qiime feature-table summarize \
+#	--i-table /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/Dada2maxee2and6_used/reindexed-table.qza \
+#	--o-visualization /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/Dada2maxee2and6_used/reindexed-table.qzv \
+#	--m-sample-metadata-file /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/Dada2maxee2and6_used/SampleSheetR1.tsv
+
+# ------------------------- Merge different feature tables PAIRED ---------------------
+
+
+
+# Merge the subset together 
+
+#qiime feature-table merge \
+#    --i-tables /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/Dada2maxee2and6_used/reindexed-table.qza /pvol/workdirs/Project1C/#202311_ABlab_1C_Run2/feature_tableR2.qza \
+#    --p-overlap-method sum \
+#    --o-merged-table /pvol/workdirs/Project1C/202311_ABlab_1C_Run2/merged-feature-table.qza
+#    --verbose
+
+# qiime feature-table summarize \
+#	--i-table /pvol/workdirs/Project1C/202311_ABlab_1C_Run2/merged-feature-table.qza \
+#	--o-visualization /pvol/workdirs/Project1C/202311_ABlab_1C_Run2/merged-feature-table.qzv \
+#	--m-sample-metadata-file /pvol/workdirs/Project1C/202311_ABlab_1C_Run2/SampleSheetR2.tsv
+
+#qiime feature-table merge-seqs \
+#	--i-data /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/Dada2maxee2and6_used/sample_seqs.qza /pvol/workdirs/Project1C/202311_ABlab_1C_Run2/sample_seqsR2.qza \
+#	--o-merged-data /pvol/workdirs/Project1C/202311_ABlab_1C_Run2/merged-sample-seqs.qza
+
+# Filter seqs that are not part of the feature table anymore. 
+# qiime feature-table filter-seqs \
+#         --i-data merged-sample-seqs.qza \
+#	--i-table merged-feature-table.qza \
+#	--o-filtered-data merged-sample-seqs-flt.qza
+
+
+##-----------------Silva database------------------
+## Silva import
+# no need to import ref sequences Silva as pre-formated qza files were available on https://docs.qiime2.org/2020.11/data-resources/
+# silva-138-99-seqs.qza
+# silva-138-00-tax.qza
+
+
+## Extract reference reads silva for each primer pair first
+
+# 06 Dec 2022 
+## --- V4_U primers
+# qiime feature-classifier extract-reads \
+#	--i-sequences taxonomyfiles/silva-138-99-seqs.qza \
+#	--p-f-primer GTGYCAGCMGCCGCGGTAA \
+#	--p-r-primer GGACTACNVGGGTWTCTAAT \
+#	--o-reads taxonomyfiles/silva-ref-seqsV4.qza
+
+# Train the classifier
+#qiime feature-classifier fit-classifier-naive-bayes \
+#	--i-reference-reads taxonomyfiles/silva-ref-seqsV4.qza \
+#	--i-reference-taxonomy taxonomyfiles/silva-138-99-tax.qza \
+#	--o-classifier taxonomyfiles/silva-classifierV4.qza \
+#	--verbose
+
+
+## using our own trained classifier from previous step #
+
+# qiime feature-classifier classify-sklearn \
+#	--i-classifier  silva-classifierV4.qza \#
+#	--i-reads sample_seqs.qza \
+#	--p-n-jobs 1 \
+#	--p-reads-per-batch 'auto' \
+#	--o-classification taxonomy_silva.qza
+
+# qiime metadata tabulate \
+#	--m-input-file taxonomy_silva.qza \
+#	--o-visualization taxonomy_silva.qzv
+
+ 
+# qiime taxa barplot --i-table feature_table.qza \
+#	--i-taxonomy taxonomy_silva.qza \
+#	--m-metadata-file SampleSheet.tsv \
+#	--o-visualization barplots_silva.qzv
+
+
+
+
+#echo "taxonomic assignments all done Silva"
+conda deactivate
+stop=$(date +'%Y-%m-%d %H:%M:%S') 
+echo "stop time $stop"
+
+

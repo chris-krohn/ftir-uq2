@@ -1,0 +1,292 @@
+
+
+start=$(date +'%Y-%m-%d %H:%M:%S') 
+echo "start time $start"
+
+# Load qiime
+eval "$(conda shell.bash hook)"
+conda activate qiime2-amplicon-2023.9
+
+
+   
+### USE THIS SCRIPT AFTER YOU HAVE IMPORTED FASTQ FILES INTO A demultiplexed .qza file (e.g. demux-paired.qza)
+
+### 15/11/23 V3V4_U
+
+### Sequences compiled in /pvol/Sequences/202311_ABlab_1C_Run2
+### Qiime processing files in /pvol/workdirs/Project1C/Project1C/202311_ABlab_1C_Run2
+
+
+
+###--------- TRAINING of CLASSIFIER (step 4a) -----------------------###
+## https://docs.qiime2.org/2020.11/tutorials/feature-classifier/
+
+
+###---------------MiDAS database-------------- 
+
+# qiime tools import --type 'FeatureData[Sequence]' \
+#	--input-path /pvol/taxonomyfiles/QIIMEFastafileMiDAS5.1_modified.fa \
+#	--output-path /pvol/taxonomyfiles/QIIME_Fasta_file_MiDAS_5.1.qza
+
+# import Midas taxonomy
+# qiime tools import \
+#	--type 'FeatureData[Taxonomy]' \
+#	--input-format HeaderlessTSVTaxonomyFormat \
+#	--input-path /pvol/taxonomyfiles/QIIME_txa_file_5.0.txt \
+#	--output-path /pvol/taxonomyfiles/MiDAS5.1.taxonomy.qza
+
+# 23 July 2024 - update data to new MIDAS53
+# qiime tools import --type 'FeatureData[Sequence]' \
+#	--input-path /Volumes/ANALYSIS2TB/Databases/MIDAS53/QIIME.faMiDAS5.3.fa \
+#	--output-path /Volumes/ANALYSIS2TB/Databases/MIDAS53/QIIME_Fasta_file_MiDAS_5.3.qza
+
+# 23 July 2024 - update data to new MIDAS53 import Midas taxonomy
+# qiime tools import \
+#	--type 'FeatureData[Taxonomy]' \
+#	--input-format HeaderlessTSVTaxonomyFormat \
+#	--input-path /Volumes/ANALYSIS2TB/Databases/MIDAS53/QIIME.txtMiDAS5.3.txt \
+#	--output-path /Volumes/ANALYSIS2TB/Databases/MIDAS53/QIIME.txtMiDAS5.3.taxonomy.qza
+
+
+## DO NOT EXTRACT READS OUT OF THE MIDAS DATABASE - TRAIN ONLY ONCE
+#export TMPDIR='/pvol/temp-qiime-data'
+# Train classifier without prior extraction?
+# Train classifier
+# qiime feature-classifier fit-classifier-naive-bayes \
+#	--i-reference-reads /pvol/taxonomyfiles/QIIME_Fasta_file_MiDAS_5.1.qza \
+#	--i-reference-taxonomy /pvol/taxonomyfiles/MiDAS5.1.taxonomy.qza \
+#	--o-classifier /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/MiDAS5.1.classifier.qza
+
+# 23 July 2024 - update data to new MIDAS53
+# qiime feature-classifier fit-classifier-naive-bayes \
+#	--i-reference-reads /Volumes/ANALYSIS2TB/Databases/MIDAS53/QIIME_Fasta_file_MiDAS_5.3.qza \
+#	--i-reference-taxonomy /Volumes/ANALYSIS2TB/Databases/MIDAS53/QIIME.txtMiDAS5.3.taxonomy.qza \
+#	--o-classifier /Volumes/ANALYSIS2TB/Databases/MIDAS53/MiDAS5.3.classifier.qza
+
+
+
+###-----------------Silva database------------------
+## Silva import
+# no need to import ref sequences Silva as pre-formated qza files were available on https://docs.qiime2.org/2020.11/data-resources/
+# silva-138-99-seqs.qza
+# silva-138-00-tax.qza
+
+
+## Extract reference reads silva for each primer pair first
+
+# 06 Dec 2022 
+## --- V4_U primers
+# qiime feature-classifier extract-reads \
+#	--i-sequences taxonomyfiles/silva-138-99-seqs.qza \
+#	--p-f-primer GTGYCAGCMGCCGCGGTAA \
+#	--p-r-primer GGACTACNVGGGTWTCTAAT \
+#	--o-reads taxonomyfiles/silva-ref-seqsV4.qza
+
+# Train the classifier
+#qiime feature-classifier fit-classifier-naive-bayes \
+#	--i-reference-reads taxonomyfiles/silva-ref-seqsV4.qza \
+#	--i-reference-taxonomy taxonomyfiles/silva-138-99-tax.qza \
+#	--o-classifier taxonomyfiles/silva-classifierV4.qza \
+#	--verbose
+
+
+#echo "taxonomic classification all done"
+
+
+
+
+###----------------------------------TAXONOMIC ANALYSIS (step 4b) ----------------------------
+
+
+###---------------MiDAS database-------------- 
+ export TMPDIR='/pvol/temp-qiime-data'
+# qiime feature-classifier classify-sklearn \
+#	--i-classifier /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/MiDAS5.1.classifier.qza \
+#	--i-reads /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/merged-sample-seqs.qza \
+#	--o-classification /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/taxonomy.midas.qza
+
+
+# 23 July 2024 - update data to new MIDAS53 
+ qiime feature-classifier classify-sklearn \
+	--i-classifier /Volumes/ANALYSIS2TB/Databases/MIDAS53/MiDAS5.3.classifier.qza \
+	--i-reads /Users/christiankrohn/Library/CloudStorage/OneDrive-RMITUniversity/Documents/Project1C_files/Experiment_LongTermMonitoring/Methods/Sequencing/merged-sample-seqs.qza \
+	--o-classification /Volumes/ANALYSIS2TB/Analysis_workdirs/2023-11_ABlab_1C_Run2/taxonomy.midas53.qza
+
+
+
+# qiime metadata tabulate \
+#	--m-input-file /pvol/workdirs/Project1C/taxonomy.midas.qza \
+#	--o-visualization /pvol/workdirs/Project1C/taxonomy.midas.qzv
+
+
+# qiime feature-classifier classify-consensus-blast \
+#	--i-query V4_U/sample_seqs29June.qza \
+#	--i-reference-reads taxonomyfiles/MiDAS4.8.1.qza \
+#	--i-reference-taxonomy taxonomyfiles/MiDAS4.8.1.taxonomy.qza \
+#	--o-classification V4_U/taxonomy.midas-consensus-blast.qza
+#echo "classify-consensus-blast done"
+
+#echo "classify-sklearn all done Midas"
+
+
+
+
+###-----------------Silva database------------------
+
+## using our own trained classifier from step 4a #
+
+# qiime feature-classifier classify-sklearn \
+#	--i-classifier  silva-classifierV4.qza \#
+#	--i-reads sample_seqs.qza \
+#	--p-n-jobs 1 \
+#	--p-reads-per-batch 'auto' \
+#	--o-classification taxonomy_silva.qza
+
+# qiime metadata tabulate \
+#	--m-input-file taxonomy_silva.qza \
+#	--o-visualization taxonomy_silva.qzv
+
+ 
+# qiime taxa barplot --i-table feature_table.qza \
+#	--i-taxonomy taxonomy_silva.qza \
+#	--m-metadata-file SampleSheet.tsv \
+#	--o-visualization barplots_silva.qzv
+
+
+
+
+#echo "taxonomic assignments all done Silva"
+
+
+
+###------------------BUILD PHYLOGENETIC TREE (FRAGMENT INSERTION)-------------------------------------
+
+# silva reference database available on Qiime resource page 'sepp-refs-silva-128'
+
+#qiime fragment-insertion sepp \
+#	--i-representative-sequences /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/sample_seqs.qza \
+#	--i-reference-database /pvol/taxonomyfiles/sepp-refs-silva-128.qza \
+#	--o-tree /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/insertion-tree.qza \
+#	--o-placements /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/insertion-placements.qza
+
+#qiime fragment-insertion filter-features \
+#	--i-table /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/feature_table.qza \
+#	--i-tree /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/insertion-tree.qza \
+#	--o-filtered-table /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/featuretable-insertiontree-filtered.qza \
+#	--o-removed-table /pvol/workdirs/Project1C/202311_ABlab_1C_Jk_wd/removed-features-insertiontree.qza
+
+
+
+###------------------BUILD PHYLOGENETIC TREE (MAFFT FASTTREE)-------------------------------------
+
+#export TMPDIR='/pvol/temp-qiime-data'
+#qiime phylogeny align-to-tree-mafft-fasttree \
+#  --i-sequences /pvol/workdirs/Project1C/202311_ABlab_1C_Run2/merged-sample-seqs.qza \
+#  --output-dir /pvol/workdirs/Project1C/202311_ABlab_1C_Run2/mafft-fasttree
+
+# echo "trees aligned"
+
+
+###------------------BUILD PHYLOGENETIC TREE (IQTREE)-------------------------------------
+export TMPDIR='/pvol/temp-qiime-data'
+#qiime phylogeny iqtree-ultrafast-bootstrap \
+#  --i-alignment /pvol/workdirs/Project1C/202311_ABlab_1C_Run2/mafft-fasttree/#masked_alignment.qza \
+#  --p-perturb-nni-strength 0.2 \
+#  --p-stop-iter 200 \
+#  --p-n-cores 16 \
+#  --o-tree /pvol/workdirs/Project1C/202311_ABlab_1C_Run2/mafft-fasttree/iqt-nnisi-bootstrap-#tree.qza \
+#  --verbose
+
+
+
+###------------------BUILD TAXONOMY & PHYLOGENETIC TREE GREENGENES (non-V4) ---------
+# done on mac
+#qiime greengenes2 non-v4-16s \
+#    --i-table merged-feature-table.qza \
+#    --i-sequences merged-sample-seqs-flt.qza \
+#    --i-backbone /Volumes/ExternalSSD/Databases/Greengenes/2022.10.backbone.full-length.fna.qza \
+#    --o-mapped-table merged-feature-table.gg2.qza \
+#    --o-representatives merged-sample-seqs-flt.gg2.qza
+ 
+
+#qiime greengenes2 taxonomy-from-table \
+#     --i-reference-taxonomy  /Volumes/ExternalSSD/Databases/Greengenes/2022.10.taxonomy.asv.nwk.qza \
+#     --i-table merged-feature-table.gg2.qza  \
+#     --o-classification merged-sample-gg2.taxonomy.qza
+
+
+# Filter reference tree to the feature table - this will be our tree
+# done on mac
+# qiime phylogeny filter-tree  \
+#	 --i-tree /Volumes/ExternalSSD/Databases/Greengenes/2022.10.phylogeny.asv.nwk.qza \
+#	--i-table merged-feature-table.gg2.qza \
+#	--o-filtered-tree gg2-tree.qza \
+#	--verbose
+
+
+
+###------------------------------------  FILTERING LOW ABUNDANT FEATURES FOR DIVERSITY ANALYSIS --------------------------------------
+## contamination
+# qiime taxa filter-table --i-table feature_table_M4.qza \
+#	--i-taxonomy taxonomy_silva_M4.qza \
+#	--p-exclude mitochondria,chloroplast \
+#	--o-filtered-table feature_table_M4_no-mitoch_chloropl.qza
+
+
+# qiime feature-table summarize --i-table feature_table_M4_no-mitoch_chloropl.qza \
+#	--o-visualization feature_table_M4_no-mitoch_chloropl.qza.qzv \
+#	--m-sample-metadata-file metadata_M4.tsv
+
+### STOP at this step to get average frequency and then decide min to filter
+
+
+## mean read frequency 23.000, 0.1% = 23 - to filter out
+# qiime feature-table filter-features \
+#	--i-table feature_table_M4_no-mitoch_chloropl.qza \
+#	--p-min-frequency 23 \
+#	--o-filtered-table feature_table_M4_no-mitoch_chloropl_fltredless23reads.qza
+
+
+# STOP and summarise table for visualisation, decide on sampling depth for diversity analysis
+# qiime feature-table summarize \
+#	--i-table feature_table_M4_no-mitoch_chloropl_fltredless23reads.qza \
+#	--o-visualization feature_table_M4_no-mitoch_chloropl_fltredless23reads.qzv \
+#	--m-sample-metadata-file metadata_M4.tsv
+
+
+
+
+###------------------------------------FILTERING SEQUENCES --------------------------------------
+# qiime feature-table filter-seqs \
+#	--i-data sample_rep_seqs_M4.qza \
+#	--i-table feature_table_M4_no-mitoch_chloropl_fltredless17reads.qza \
+#	--o-filtered-data sample_rep_seqs_M4_no-mitoch_chloropl_fltredless17reads.qza
+
+
+
+
+###------------------------------------EXPORT OTUS --------------------------------------
+
+#qiime tools export --input-path feature_table.qza --output-path ./
+
+## add taxonomy to featuretable
+#biom add-metadata -i feature-table.biom -o table-with-taxonomy.biom \
+#	--observation-metadata-fp taxonomy_silva_biome.tsv \
+#	--sc-separated taxonomy
+
+
+## Convert to .tsv
+# biom convert -i table-with-taxonomy.biom -o table-with-taxonomy.tsv --to-tsv  
+
+## check the file
+# biom head -i table-with-taxonomy.tsv
+
+
+
+
+
+# conda deactivate
+stop=$(date +'%Y-%m-%d %H:%M:%S') 
+echo "stop time $stop"
+
+
