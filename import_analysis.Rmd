@@ -10,7 +10,7 @@ github-repo: "ftir-uq - shamima"
 
 ## Packages
 
-```{r packages}
+```{r message=FALSE, warning=FALSE}
 
 # Install all needed packages 
 # install.packages("remotes")
@@ -43,12 +43,17 @@ theme_set(theme_bw())
 
 ## Import
 ### Import qiime data and metadata into a phyloseq object
-```{r}
+```{r message=FALSE, warning=FALSE}
 
-# ASVs                     
-asvs <-  read.csv("./data/relative_features_statistics_07March2025.csv") %>% column_to_rownames("X.OTU.ID") %>% 
-  dplyr::select(RA7188_J5894:RB0172_J6457) 
-colnames(asvs)
+# ASVs  option 1 (relative abundances)                   
+# asvs <-  read.csv("./data/relative_features_statistics_07March2025.csv") %>% # column_to_rownames("X.OTU.ID") %>% 
+#  dplyr::select(RA7188_J5894:RB0172_J6457) 
+# colnames(asvs)
+
+# ASV option 2 .qza feature table
+asvs <- read_qza("./data/feature-table.qza")
+asvs <- asvs$data
+
 # Taxonomy
 taxa <-  read.csv("./data/relative_features_statistics_07March2025.csv") %>% column_to_rownames("X.OTU.ID") %>% 
   dplyr::select(Taxon) 
@@ -64,7 +69,7 @@ metadata <- metadata[c(2:nrow(metadata)),] %>% # remove the top row and convert 
   mutate_all(type.convert) %>%
   mutate_if(is.factor, as.character) %>%  # reformatting columns to avoid any problems with factors at this stage
   as_tibble() %>% 
-  mutate(Treatment = factor(Treatment_name, levels = c("WAS", "BC", "HC", "Co"))) %>% 
+  mutate(Treatment = factor(Treatment_name, levels = c("Control", "WAS", "BCR", "HCR" ))) %>% 
   mutate(Day = factor(Day, levels = c("D76", "D121", "D160", "D196"))) %>% 
   column_to_rownames("SampleID") 
 
@@ -75,10 +80,29 @@ ps <- phyloseq(
   tax_table(taxa)
 )
 
+taxasums1 <- length(taxa_sums(ps))
+
+# Filter data to remove singletons or small counts as the likelihood of their false detection is high. 
+#ps.temp = filter_taxa(ps, function(x) mean(x) > 1e-5, TRUE)
+ps = prune_taxa(taxa_sums(ps) > 5, ps)
+# Removing WAS samples
+ps = prune_samples(sample_data(ps)$Treatment_name %notin% c("WAS"), ps)
+ps = prune_taxa(taxa_sums(ps) > 0, ps)
+taxasums2 <- length(taxa_sums(ps))
+
+#phyloseq-class experiment-level object
+#otu_table()   OTU Table:         [ 1879 taxa and 12 samples ]
+#sample_data() Sample Data:       [ 12 samples by 12 sample variables ]
+#tax_table()   Taxonomy Table:    [ 1879 taxa by 7 taxonomic ranks ]
+
+# number of otus/asvs removed
+ taxasums1 - taxasums2 # 1480
+
 # check the sample sheet from ps object
 samplesheet <- data.frame(sample_data(ps))
-str(samplesheet)
+# str(samplesheet)
 summary(samplesheet$Treatment)
+
 
 ## Remove those annoying short codes in front of taxa names (i.e. p__ etc) as they
 ## dont look good in visualisation
@@ -89,6 +113,18 @@ tax_table(ps)[, "Order"] <- str_replace_all(tax_table(ps)[, "Order"], " o__", ""
 tax_table(ps)[, "Family"] <- str_replace_all(tax_table(ps)[, "Family"], " f__", "") 
 tax_table(ps)[, "Genus"] <- str_replace_all(tax_table(ps)[, "Genus"], " g__", "") 
 tax_table(ps)[, "Species"] <- str_replace_all(tax_table(ps)[, "Species"], " s__", "") 
+```
+
+### Normalise / rarefy
+```{r message=FALSE, warning=FALSE}
+sample_sums(ps)
+resamplesize <- min(sample_sums(ps))
+data <- as.data.frame(t(otu_table(ps)))
+vegan::rarecurve(data, step = 200, sample = resamplesize, label = FALSE)
+
+# Removing WAS samples
+ps.rare = prune_samples(sample_data(ps)$Treatment_name %notin% c("WAS"), ps)
+ps.rare <- phyloseq::rarefy_even_depth(ps.rare)
 
 ```
 
@@ -193,30 +229,12 @@ ntaxa(ps.flt) / ntaxa(ps) * 100
 
 ### Microbial 16S PCA 
 To see how microbial 16S abundances vary among the selected samples. 
-#### Filtering and number of taxa
-```{r message=FALSE, warning=FALSE, echo=F}
-
-# Filter data to remove singletons or small counts as the likelihood of their false detection is high. 
-ps.temp = filter_taxa(ps, function(x) mean(x) > 1e-5, TRUE)
-# Removing WAS samples
-ps.temp = prune_samples(sample_data(ps.temp)$Treatment_name %notin% c("WAS"), ps.temp)
-ps.temp = prune_taxa(taxa_sums(ps.temp) > 0,ps.temp)
-
-# check final data
-#phyloseq-class experiment-level object
-#otu_table()   OTU Table:         [ 1798 taxa and 12 samples ]
-#sample_data() Sample Data:       [ 12 samples by 12 sample variables ]
-#tax_table()   Taxonomy Table:    [ 1798 taxa by 7 taxonomic ranks ]
-
-# number of otus/asvs removed
-length(taxa_sums(ps)) - length(taxa_sums(ps.temp))
-# 1561
-```
 
 #### PCA (clr)
-```{r message=FALSE, warning=FALSE, echo=F}
+```{r message=FALSE, warning=FALSE, echo=T}
 # MicroViz functions:
-ps.az <- microViz::tax_fix(ps.temp, unknowns = c("uncultured"))
+#ps.az <- microViz::tax_fix(ps.temp, unknowns = c("uncultured"))
+ps.az <- microViz::tax_fix(ps.rare, unknowns = c("uncultured"))
 # try tax_fix_interactive if you have problems with your own data
 
 # Convert abundance counts into ratios
@@ -233,8 +251,9 @@ ggsave(plot = p, "./Figures/PCA_genus.png", height=10, width=13, units='cm', dpi
 p
 ```
 
+
 #### PCA with loadings
-```{r message=FALSE, warning=FALSE, echo=F}
+```{r message=FALSE, warning=FALSE, echo=T}
 p2 <- ps.az %>% 
   ord_calc() %>%
   ord_plot(color = "Treatment_name", shape = "Day", size = 3, alpha = 0.7, plot_taxa = 1:10) +
@@ -248,7 +267,7 @@ g
 ```
 
 #### Iris plot
-```{r message=FALSE, warning=FALSE, echo=F}
+```{r message=FALSE, warning=FALSE, echo=T}
 irisp <- ps.az %>% 
 ord_calc() %>%
   ord_plot_iris(tax_level = "Genus", n_taxa = 10,
@@ -263,7 +282,7 @@ irisp
 #### Principal co-ordinates analysis (Jaccard distances)
 ```{r}
 # MicroViz functions:
-ps.az <- microViz::tax_fix(tax_fix(ps.temp, unknowns = c("uncultured"))) 
+ps.az <- microViz::tax_fix(tax_fix(ps.rare, unknowns = c("uncultured"))) 
 
 p <- ps.az %>% 
 ord_calc() %>%
@@ -377,7 +396,7 @@ par(mfrow = c(2, 2))
 # scores plot colored by the factor created 
 plotScores(m$res$cal, show.labels = FALSE, cgroup = g)
 # Plot loadings
-plotLoadings(m, c(1, 3), show.labels = TRUE)
+plotLoadings(m, c(1, 2), show.labels = TRUE)
 
 # distance plot for calibration results with labels
 plotResiduals(m$res$cal, show.labels = TRUE, cgroup = g )
